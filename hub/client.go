@@ -1,10 +1,11 @@
 package hub
 
-var Client Connector
+import "log/slog"
 
 type (
 	Connector interface {
 		Alive() bool
+		GetSelf() Member
 		Listen(func(Message))
 		GetGroupMembers(gid string) GroupMembers
 		GetGroupMember(gid string, uid string) *GroupMember
@@ -18,6 +19,13 @@ type (
 	}
 )
 
+var (
+	Client Connector
+	Bot    Member
+)
+
 func Init(c Connector) {
 	Client = c
+	Bot = c.GetSelf()
+	slog.Info("Client initialized", "bot", Bot)
 }

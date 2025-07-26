@@ -7,11 +7,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/go-resty/resty/v2"
 	"log/slog"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-resty/resty/v2"
 )
 
 type connector struct {
@@ -63,6 +64,29 @@ func (c *connector) Alive() bool {
 	return c.connected
 }
 
+func (c *connector) GetSelf() hub.Member {
+	resp, err := c.r.R().
+		SetResult(result[hub.Member]{}).
+		Get("bot")
+	if err != nil {
+		slog.Error("SSEClient 获取Bot信息失败", "err", err)
+		return hub.Member{}
+	}
+	if !resp.IsSuccess() {
+		slog.Error("SSEClient 获取Bot信息失败", "response", string(resp.Body()))
+		return hub.Member{}
+	}
+	res := resp.Result().(*result[hub.Member])
+	if res == nil {
+		slog.Error("SSEClient 获取Bot信息失败,结果为nil", "response", string(resp.Body()))
+		return hub.Member{}
+	}
+	if res.Code != 0 {
+		slog.Error("SSEClient 获取Bot信息失败", "err", err)
+		return hub.Member{}
+	}
+	return res.Data
+}
 func (c *connector) GetGroupMembers(gid string) hub.GroupMembers {
 	resp, err := c.r.R().
 		SetQueryParam("gid", gid).

@@ -2,9 +2,10 @@ package handler
 
 import (
 	"assistant-plugin-go/hub"
-	"github.com/spf13/viper"
 	"log/slog"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 type CommandPlugin interface {
@@ -13,7 +14,7 @@ type CommandPlugin interface {
 }
 
 func OnCommand(commands ...CommandPlugin) func(raw hub.Message) bool {
-	prefix := viper.GetString("PREFIX_COMMAND")
+	prefix := viper.GetString("command.prefix")
 	return func(raw hub.Message) bool {
 		if !strings.HasPrefix(raw.Content, prefix) {
 			return false

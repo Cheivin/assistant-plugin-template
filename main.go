@@ -7,24 +7,30 @@ import (
 	"assistant-plugin-go/plugin"
 	"context"
 	"errors"
-	"github.com/spf13/viper"
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
+
+	"github.com/spf13/viper"
 )
 
 func init() {
-	viper.SetDefault("ASSISTANT_HOST", "127.0.0.1")
-	viper.SetDefault("ASSISTANT_PORT", 28003)
-	viper.SetDefault("ASSISTANT_USERNAME", "")
-	viper.SetDefault("ASSISTANT_USERNAME", "")
-	// 用于识别命令的前缀
-	viper.SetDefault("PREFIX_COMMAND", "#")
+	viper.SetConfigType("yaml")
 
-	viper.SetConfigName(".env")
-	viper.SetConfigType("env")
-	viper.AddConfigPath(".")
-	if err := viper.ReadInConfig(); err != nil {
+	// 先检查环境变量中是否指定了配置文件路径
+	var err error
+	if configPath := os.Getenv("CONFIG_FILE"); configPath != "" {
+		viper.SetConfigFile(configPath)
+		err = viper.ReadInConfig()
+	} else {
+		// 环境变量未指定，使用默认路径
+		viper.SetConfigName("config")
+		viper.AddConfigPath(".")
+		err = viper.ReadInConfig()
+	}
+
+	if err != nil {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
 		if errors.As(err, &configFileNotFoundError) {
 			slog.Error("Config file not found", "err", err)
@@ -32,18 +38,23 @@ func init() {
 			panic(err)
 		}
 	}
+	slog.Info("加载配置文件", slog.Any("config", viper.ConfigFileUsed()))
+
+	viper.SetDefault("command.prefix", "#")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 }
+
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 
 	// 初始化客户端
 	var options []sse.Option
-	if viper.GetString("ASSISTANT_USERNAME") != "" && viper.GetString("ASSISTANT_PASSWORD") != "" {
-		options = append(options, sse.WithAuth(viper.GetString("ASSISTANT_USERNAME"), viper.GetString("ASSISTANT_PASSWORD")))
+	if viper.GetString("assistant.username") != "" && viper.GetString("assistant.password") != "" {
+		options = append(options, sse.WithAuth(viper.GetString("assistant.username"), viper.GetString("assistant.password")))
 	}
-	hub.Init(sse.New(ctx, viper.GetString("ASSISTANT_HOST"), viper.GetInt("ASSISTANT_PORT"), options...))
+	hub.Init(sse.New(ctx, viper.GetString("assistant.host"), viper.GetInt("assistant.port"), options...))
 
 	go func() {
 		slog.Info("SSEClient connected")
